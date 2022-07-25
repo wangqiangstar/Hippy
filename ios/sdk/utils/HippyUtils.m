@@ -418,7 +418,37 @@ UIWindow *__nullable HippyKeyWindow(void) {
     if (HippyRunningInAppExtension()) {
         return nil;
     }
-    return HippySharedApplication().keyWindow;
+    __block UIWindow *keyWindow = nil;
+    if (@available(iOS 13.0, *)) {
+        NSSet<UIScene *> *scenes = [HippySharedApplication() connectedScenes];
+        [scenes enumerateObjectsUsingBlock:^(UIScene * _Nonnull obj, BOOL * _Nonnull stop) {
+            if (UISceneActivationStateForegroundActive == obj.activationState) {
+                if ([obj isKindOfClass:[UIWindowScene class]]) {
+                    UIWindowScene *windowScene = (UIWindowScene *)obj;
+                    if (@available(iOS 15.0, *)) {
+                        keyWindow = windowScene.keyWindow;
+                        *stop = YES;
+                    }
+                    else {
+                        __block BOOL shouldStop = NO;
+                        NSArray<UIWindow *> *windows = [windowScene windows];
+                        [windows enumerateObjectsUsingBlock:^(UIWindow * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stopForNested) {
+                            if ([obj isKeyWindow]) {
+                                keyWindow = obj;
+                                *stopForNested = YES;
+                                shouldStop = YES;
+                            }
+                        }];
+                        *stop = shouldStop;
+                    }
+                }
+            }
+        }];
+    }
+    if (!keyWindow) {
+        keyWindow = HippySharedApplication().keyWindow;
+    }
+    return keyWindow;
 }
 
 UIViewController *__nullable HippyPresentedViewController(void) {
